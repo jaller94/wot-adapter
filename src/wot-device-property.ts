@@ -24,8 +24,10 @@ export class WoTDeviceProperty<T extends Any> extends Property<T> {
     return super.setValue(value);
   }
 
-  getValue(): Promise<T> {
+  async getValue(): Promise<T> {
     const thing: ConsumedThing = this._device.thing;
-    return thing.readProperty(this.getName());
+    const output = await thing.readProperty(this.getName());
+    // TODO: Remove unsafe cast
+    return (await output.value()) as T;
   }
 }

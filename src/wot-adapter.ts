@@ -15,14 +15,9 @@ import Servient from '@node-wot/core';
 import { WoTAdapterConfig, AuthenticationDataType } from './wot-adapter-config';
 import { DeviceWithoutId as DeviceWithoutIdSchema } from 'gateway-addon/src/schema';
 import { HttpClientFactory } from '@node-wot/binding-http';
+import * as WoT from 'wot-typescript-definitions';
 
 const POLL_INTERVAL = 5 * 1000;
-
-type WoTDiscoveredDeviceData = {
-  td: Record<string, unknown>;
-  authdata?: AuthenticationDataType;
-};
-// TODO: specify exact types for `any` (everywhere where possible)
 
 export class WoTAdapter extends Adapter {
   public pollInterval: number = POLL_INTERVAL;
@@ -31,7 +26,7 @@ export class WoTAdapter extends Adapter {
 
   private srv?: Servient;
 
-  private wot?: WoT.WoT;
+  private wot?: typeof WoT;
 
   private savedDeviceIds: Set<string> = new Set();
 
@@ -54,7 +49,7 @@ export class WoTAdapter extends Adapter {
       this.on_discovery = true;
       this.discovery = multicast();
 
-      this.discovery.on('foundThing', (data: { url: string; td: Record<string, unknown> }) => {
+      this.discovery.on('foundThing', (data: { url: string; td: WoT.ThingDescription }) => {
         this.addDevice(data.url, data.td);
       });
       this.discovery.on('lostThing', (url: string) => {
@@ -187,7 +182,7 @@ export class WoTAdapter extends Adapter {
   // TODO: Which parameters should we retain/add?
   async addDevice(
     url: string,
-    td: Record<string, unknown>,
+    td: WoT.ThingDescription,
     authdata?: AuthenticationDataType
   ): Promise<Device> {
     if (!this.wot) {
