@@ -41,7 +41,7 @@ export default class WoTDevice extends Device {
     adapter: WoTAdapter,
     id: string,
     thing: ConsumedThing,
-    private configuration = { useObservable: false }
+    private configuration = { useObservable: false },
   ) {
     super(adapter, id);
     this._thing = thing;
@@ -50,7 +50,7 @@ export default class WoTDevice extends Device {
     const td = thing.getThingDescription();
 
     this.setTitle(td.title);
-    this.setTypes(typeof td['@type'] === 'string' ? [td['@type']] : td['@type'] ?? []);
+    this.setTypes(typeof td['@type'] === 'string' ? [td['@type']] : (td['@type'] ?? []));
     this.setDescription(td.description ?? '');
     this.setContext('https://www.w3.org/2019/wot/td/v1');
 

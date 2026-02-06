@@ -31,7 +31,7 @@ export type DiscoveryOptions = {
 export interface Discovery extends EventEmitter {
   on(
     event: 'foundThing',
-    listener: (data: { url: string; td: WoT.ThingDescription }) => void
+    listener: (data: { url: string; td: WoT.ThingDescription }) => void,
   ): this;
   on(event: 'lostThing', listener: (url: string) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
@@ -42,7 +42,7 @@ export interface Discovery extends EventEmitter {
 
 function getHeaders(
   authentication: AuthenticationData,
-  includeContentType = false
+  includeContentType = false,
 ): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -113,7 +113,7 @@ async function fetchWithRetries(
       schema: 'nosec',
     },
   },
-  retryCount = 0
+  retryCount = 0,
 ): Promise<Response> {
   try {
     return await fetch(url, { headers: getHeaders(options.authentication) });
@@ -124,9 +124,7 @@ async function fetchWithRetries(
     } else {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          fetchWithRetries(url, options, ++retryCount)
-            .then(resolve)
-            .catch(reject);
+          fetchWithRetries(url, options, ++retryCount).then(resolve).catch(reject);
         }, options.retryInterval);
       });
     }
@@ -135,7 +133,7 @@ async function fetchWithRetries(
 
 export async function direct(
   url: string,
-  options?: DiscoveryOptions
+  options?: DiscoveryOptions,
 ): Promise<[Record<string, unknown>, boolean]> {
   const href = url.replace(/\/$/, '');
 

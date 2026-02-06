@@ -85,7 +85,7 @@ export class WoTAdapterConfig {
   }
 
   private isAuthenticationData(
-    configuration: unknown
+    configuration: unknown,
   ): configuration is WebThingEndpoint['authentication'] | undefined {
     // eslint-disable-next-line no-undefined
     return configuration === undefined || !!(configuration as AuthenticationDataType).schema;

@@ -97,7 +97,7 @@ export class WoTAdapter extends Adapter {
     url: string,
     retries?: number,
     retryInterval?: number,
-    authdata: AuthenticationDataType = { schema: 'nosec' }
+    authdata: AuthenticationDataType = { schema: 'nosec' },
   ): Promise<void> {
     const href = url.replace(/\/$/, '');
 
@@ -116,7 +116,7 @@ export class WoTAdapter extends Adapter {
       if (!id) {
         if (things.length > 1) {
           console.warn(
-            `TD without id field is not allowed within a collection, skipping: ${thing.title}`
+            `TD without id field is not allowed within a collection, skipping: ${thing.title}`,
           );
           continue;
         }
@@ -183,7 +183,7 @@ export class WoTAdapter extends Adapter {
   async addDevice(
     url: string,
     td: WoT.ThingDescription,
-    authdata?: AuthenticationDataType
+    authdata?: AuthenticationDataType,
   ): Promise<Device> {
     if (!this.wot) {
       throw new Error('Unitilized device; call initDiscovery before adding a device');
