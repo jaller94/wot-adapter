@@ -31,7 +31,7 @@
     "wot-typescript-definitions": "^0.8.0-SNAPSHOT.31"
   },
   "peerDependencies": {
-    "gateway-addon": "^1.1.0-alpha.2"
+    "gateway-addon": "^2.0.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.17",
