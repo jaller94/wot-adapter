@@ -5,19 +5,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
  */
-import EventEmitter from 'events';
+import EventEmitter from 'node:events';
 import { ServiceType, Browser } from 'dnssd';
-import * as crypto from 'crypto';
-import fetch, { Response, HeadersInit } from 'node-fetch';
+import * as crypto from 'node:crypto';
 
 type CacheRecord = {
   href: string;
   authentication?: AuthenticationData;
   digest: string;
-  td: Record<string, unknown>;
+  td: WoT.ThingDescription;
   timestamp: number;
 };
-// TODO: define a ThingDescription type
 const tdsCache: Map<string, CacheRecord> = new Map();
 
 type AuthenticationData = {
@@ -33,7 +31,7 @@ export type DiscoveryOptions = {
 export interface Discovery extends EventEmitter {
   on(
     event: 'foundThing',
-    listener: (data: { url: string; td: Record<string, unknown> }) => void
+    listener: (data: { url: string; td: WoT.ThingDescription }) => void,
   ): this;
   on(event: 'lostThing', listener: (url: string) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
@@ -42,8 +40,11 @@ export interface Discovery extends EventEmitter {
   stop(): void;
 }
 
-function getHeaders(authentication: AuthenticationData, includeContentType = false): HeadersInit {
-  const headers: HeadersInit = {
+function getHeaders(
+  authentication: AuthenticationData,
+  includeContentType = false,
+): Record<string, string> {
+  const headers: Record<string, string> = {
     Accept: 'application/json',
   };
 
@@ -112,7 +113,7 @@ async function fetchWithRetries(
       schema: 'nosec',
     },
   },
-  retryCount = 0
+  retryCount = 0,
 ): Promise<Response> {
   try {
     return await fetch(url, { headers: getHeaders(options.authentication) });
@@ -123,9 +124,7 @@ async function fetchWithRetries(
     } else {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          fetchWithRetries(url, options, ++retryCount)
-            .then(resolve)
-            .catch(reject);
+          fetchWithRetries(url, options, ++retryCount).then(resolve).catch(reject);
         }, options.retryInterval);
       });
     }
@@ -134,21 +133,13 @@ async function fetchWithRetries(
 
 export async function direct(
   url: string,
-  options?: DiscoveryOptions
+  options?: DiscoveryOptions,
 ): Promise<[Record<string, unknown>, boolean]> {
   const href = url.replace(/\/$/, '');
 
-  if (!tdsCache.has(href)) {
-    tdsCache.set(href, {
-      href,
-      authentication: options?.authentication,
-      digest: '',
-      td: {},
-      timestamp: 0,
-    });
-  }
-  if (tdsCache.get(href)!.timestamp + 5000 > Date.now()) {
-    return [tdsCache.get(href)!.td, true];
+  const cachedRecord1 = tdsCache.get(href);
+  if (cachedRecord1 && cachedRecord1.timestamp + 5000 > Date.now()) {
+    return [cachedRecord1.td, true];
   }
 
   const res = await fetchWithRetries(href, options);
@@ -159,11 +150,14 @@ export async function direct(
   hash.update(text);
   const dig = hash.digest('hex');
 
-  if (tdsCache.get(href)?.digest === dig) {
-    return [tdsCache.get(href)!.td, true];
+  // Ask the cache again because we used `await`
+  const cachedRecord2 = tdsCache.get(href);
+  if (cachedRecord2?.digest === dig) {
+    return [cachedRecord2.td, true];
   }
 
   try {
+    // TODO: Validate that td is a WoT.ThingDescription
     const td = JSON.parse(text);
 
     tdsCache.set(href, {

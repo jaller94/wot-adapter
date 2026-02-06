@@ -8,13 +8,13 @@
 import { WoTAdapter } from './wot-adapter';
 import { Action, Device, Event, Property } from 'gateway-addon';
 import * as schema from 'gateway-addon/lib/schema';
-import { ConsumedThing } from 'wot-typescript-definitions';
+import { ConsumedThing, Subscription } from 'wot-typescript-definitions';
 
 import { WoTDeviceProperty } from './wot-device-property';
 export default class WoTDevice extends Device {
   private readonly _thing: ConsumedThing;
 
-  private openHandles: Array<string | NodeJS.Timeout>;
+  private openHandles: (NodeJS.Timeout | Subscription)[];
 
   public get thing(): ConsumedThing {
     return this._thing;
@@ -41,18 +41,17 @@ export default class WoTDevice extends Device {
     adapter: WoTAdapter,
     id: string,
     thing: ConsumedThing,
-    private configuration = { useObservable: false }
+    private configuration = { useObservable: false },
   ) {
     super(adapter, id);
     this._thing = thing;
     this.openHandles = [];
 
     const td = thing.getThingDescription();
-    // TODO: TD validation ?
 
-    this.setTitle(td.title as string);
-    this.setTypes((td['@type'] as string[]) || []);
-    this.setDescription(td.description as string);
+    this.setTitle(td.title);
+    this.setTypes(typeof td['@type'] === 'string' ? [td['@type']] : (td['@type'] ?? []));
+    this.setDescription(td.description ?? '');
     this.setContext('https://www.w3.org/2019/wot/td/v1');
 
     if (td.links) {
@@ -114,13 +113,18 @@ export default class WoTDevice extends Device {
     }
     // see if it can be observerd
     if (schProp.observable && this.configuration.useObservable) {
-      this.thing.observeProperty(property.getName(), (value) => {
-        property.setCachedValueAndNotify(value);
-      });
-      this.openHandles.push(property.getName());
+      this.thing
+        .observeProperty(property.getName(), async (value) => {
+          const actualValue = await value.value();
+          property.setCachedValueAndNotify(actualValue);
+        })
+        .then((subscription) => {
+          this.openHandles.push(subscription);
+        });
     } else {
       const timeout = setInterval(async () => {
-        const value = await this.thing.readProperty(property.getName());
+        const output = await this.thing.readProperty(property.getName());
+        const value = await output.value();
         property.setCachedValueAndNotify(value);
       }, 5000); // TODO: add configuration parameter
       this.openHandles.push(timeout);
@@ -128,16 +132,23 @@ export default class WoTDevice extends Device {
   }
 
   private subscribeEvent(eventName: string): void {
-    this.thing.subscribeEvent(eventName, (data) => {
-      this.eventNotify(new Event(this, eventName, data));
-    });
+    this.thing
+      .subscribeEvent(eventName, async (data) => {
+        const value = await data.value();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.eventNotify(new Event(this, eventName, value as any));
+      })
+      .then((subscription) => {
+        this.openHandles.push(subscription);
+      });
   }
 
   public destroy(): void {
     // close all the open handles
     for (const handle of this.openHandles) {
-      if (typeof handle === 'string') {
-        this.thing.unobserveProperty(handle);
+      if (typeof handle === 'object' && handle && 'stop' in handle) {
+        // This is a subscription object with a stop method
+        handle.stop();
       } else {
         clearInterval(handle);
       }
